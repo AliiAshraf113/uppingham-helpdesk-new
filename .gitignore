@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+*.log
+private-uploads/
+artifacts/
+
+# Local secrets and private keys
+*.pem
+*.key
+id_rsa
+id_ed25519
