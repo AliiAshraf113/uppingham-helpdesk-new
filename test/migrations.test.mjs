@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 import { discoverMigrations, planMigrations, splitSqlStatements } from "../scripts/migration-utils.mjs";
+import { EXPECTED_NEW_DATABASE, LOCK_NAME, parseArguments as parseMigrateArguments, parseDatabaseUrl as parseMigrateDatabaseUrl } from "../scripts/migrate.mjs";
 import { canonicalizeEvidence, parseResetTarget, RESET_DATABASE, RESET_PORT, resetConfirmationPhrase, validateBackupEvidence, validateResetArguments } from "../scripts/reset-safety.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,6 +17,7 @@ test("migration files are contiguous, sorted and checksummed", async () => {
     "0001_identity_and_reference",
     "0002_assets_and_tickets",
     "0003_history_comments_files_notifications",
+    "0004_technician_internal_notes",
   ]);
   assert.ok(migrations.every(({ checksum }) => /^[a-f0-9]{64}$/.test(checksum)));
 });
@@ -23,7 +25,10 @@ test("migration files are contiguous, sorted and checksummed", async () => {
 test("migration plan applies only pending files and is a no-op after all are recorded", async () => {
   const migrations = await discoverMigrations(migrationsDirectory);
   const applied = migrations.slice(0, 2).map(({ id, checksum }) => ({ migration_id: id, checksum }));
-  assert.deepEqual(planMigrations(migrations, applied).map(({ id }) => id), ["0003_history_comments_files_notifications"]);
+  assert.deepEqual(planMigrations(migrations, applied).map(({ id }) => id), [
+    "0003_history_comments_files_notifications",
+    "0004_technician_internal_notes",
+  ]);
   assert.deepEqual(planMigrations(migrations, migrations.map(({ id, checksum }) => ({ migration_id: id, checksum }))), []);
 });
 
@@ -180,4 +185,48 @@ test("database diagnostic is fixed-target and contains only the read-only identi
   assert.doesNotMatch(diagnostic, /\b(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i);
   assert.doesNotMatch(diagnostic, /migrate\.mjs|reset-database\.mjs/);
   assert.match(diagnostic, /s1478\.lon1\.mysecurecloudhost\.com/);
+});
+
+test("migration runner accepts only ucegcom_uppingham_helpdesk and explicitly forbids ucegcom_helpdesk", () => {
+  assert.equal(EXPECTED_NEW_DATABASE, "ucegcom_uppingham_helpdesk");
+  assert.equal(LOCK_NAME, "ucegcom_uppingham_helpdesk_schema_migrations");
+
+  // parseArguments checks
+  const validArgs = parseMigrateArguments([
+    "--approve-database", "ucegcom_uppingham_helpdesk",
+    "--approve-server", "s1478.lon1.mysecurecloudhost.com",
+    "--backup-confirmed",
+  ]);
+  assert.equal(validArgs.database, "ucegcom_uppingham_helpdesk");
+  assert.equal(validArgs.server, "s1478.lon1.mysecurecloudhost.com");
+  assert.equal(validArgs.backupConfirmed, true);
+
+  // Rejects wrong database names including legacy ucegcom_helpdesk and old uppingham_helpdesk
+  assert.throws(
+    () => parseMigrateArguments(["--approve-database", "ucegcom_helpdesk", "--approve-server", "host", "--backup-confirmed"]),
+    /Pass --approve-database ucegcom_uppingham_helpdesk/,
+  );
+  assert.throws(
+    () => parseMigrateArguments(["--approve-database", "uppingham_helpdesk", "--approve-server", "host", "--backup-confirmed"]),
+    /Pass --approve-database ucegcom_uppingham_helpdesk/,
+  );
+  assert.throws(
+    () => parseMigrateArguments(["--approve-database", "other_db", "--approve-server", "host", "--backup-confirmed"]),
+    /Pass --approve-database ucegcom_uppingham_helpdesk/,
+  );
+
+  // parseDatabaseUrl checks
+  const parsed = parseMigrateDatabaseUrl("mysql://migrator:secret@s1478.lon1.mysecurecloudhost.com:3306/ucegcom_uppingham_helpdesk");
+  assert.equal(parsed.database, "ucegcom_uppingham_helpdesk");
+  assert.equal(parsed.config.host, "s1478.lon1.mysecurecloudhost.com");
+
+  // Rejects legacy database ucegcom_helpdesk even if supplied in the URL
+  assert.throws(
+    () => parseMigrateDatabaseUrl("mysql://migrator:secret@s1478.lon1.mysecurecloudhost.com:3306/ucegcom_helpdesk"),
+    /The legacy ucegcom_helpdesk database is forbidden as a migration target/,
+  );
+  assert.throws(
+    () => parseMigrateDatabaseUrl("mysql://migrator:secret@s1478.lon1.mysecurecloudhost.com:3306/UCEGCOM_HELPDESK"),
+    /The legacy ucegcom_helpdesk database is forbidden as a migration target/,
+  );
 });

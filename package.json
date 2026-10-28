@@ -20,6 +20,7 @@
   "dependencies": {
     "mariadb": "3.5.4",
     "next": "^16.4.3",
+    "next-auth": "5.0.0-beta.32",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

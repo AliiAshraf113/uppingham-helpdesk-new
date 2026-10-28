@@ -94,3 +94,6 @@ Passing local Windows checks is not a substitute for these host checks. Do not c
 - [Passenger Node.js reverse port binding](https://www.phusionpassenger.com/docs/advanced_guides/in_depth/node/reverse_port_binding.html)
 - [Next.js custom server API and caveats](https://nextjs.org/docs/app/guides/custom-server)
 - [MariaDB Community 10.6 EOL notice](https://mariadb.org/mariadb-server-10-6-reaches-end-of-life-on-july-6th/)
+# Application implementation status (2026-10-26)
+
+Ticket and asset services plus narrow report, notification, and admin-reference services have been added locally. Their API shells fail closed until Entra authentication is configured, and no workflow UI is complete. Do not deploy this intermediate version. Windows builds have alternated between success and `EPERM` during Next output creation; the latest failure occurred during compilation at `.next/server/app/api/admin`, after earlier failures at other route paths. Read-only ACL/process checks did not establish a cause; Defender and open-handle diagnostics were unavailable. Treat cPanel clone build and HTTP validation as separate required checks after the application becomes deployable.

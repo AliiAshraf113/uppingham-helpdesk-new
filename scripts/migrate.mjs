@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { discoverMigrations, planMigrations, splitSqlStatements } from "./migration-utils.mjs";
 
-const EXPECTED_NEW_DATABASE = "uppingham_helpdesk";
-const LOCK_NAME = "uppingham_helpdesk_schema_migrations";
+const EXPECTED_NEW_DATABASE = "ucegcom_uppingham_helpdesk";
+const LOCK_NAME = "ucegcom_uppingham_helpdesk_schema_migrations";
 const MIGRATIONS_DIRECTORY = fileURLToPath(new URL("../migrations/", import.meta.url));
 
 class MigrationGuardError extends Error {}
@@ -139,3 +139,12 @@ if (invokedPath && fileURLToPath(import.meta.url) === invokedPath) {
     process.exitCode = 1;
   });
 }
+
+export {
+  EXPECTED_NEW_DATABASE,
+  LOCK_NAME,
+  MigrationGuardError,
+  parseArguments,
+  parseDatabaseUrl,
+  applyMigrations,
+};

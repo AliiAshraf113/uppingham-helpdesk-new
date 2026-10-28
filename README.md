@@ -1,6 +1,6 @@
 # Uppingham IT Helpdesk
 
-Clean implementation scaffold for the internal school IT service desk.
+The project is under active implementation and is **not production-ready**. Auth.js Microsoft Entra sign-in, server-side principal resolution, protected ticket APIs, and an initial ticket workflow UI are implemented. No real Entra tenant, database, or cPanel sign-in has been tested. See [implementation status](docs/implementation-status.md).
 
 ## Local development
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-The local app is served below `/helpdesk` (for example, `http://localhost:3000/helpdesk`). The Stage 1 UI and health endpoint do not require environment variables. Copy `.env.example` to `.env.local` only when later stages need local database or authentication configuration; keep real secrets out of source control.
+The local app is served below `/helpdesk` (for example, `http://localhost:3000/helpdesk`). The health endpoint does not require environment variables. Authenticated features require a configured Microsoft Entra single-tenant OIDC app and pre-provisioned local account/role rows. See [authentication setup](docs/authentication-setup.md). Never commit real secrets. Missing auth settings fail closed with `503`; missing sessions return `401`.
 
 ## Validation
 
@@ -30,18 +30,18 @@ The existing cPanel application uses root `/home/ucegcom/helpdesk`, URL `/helpde
 
 Do not upload local `node_modules`. CloudLinux manages dependencies in its per-application virtual environment; use the existing Node.js Selector application's dependency-install action and run the build from that selected environment. Inspect any existing app-root `node_modules` object before a version switch and do not remove it until its type and ownership by the Selector are confirmed. See [docs/cpanel-compatibility-checklist.md](docs/cpanel-compatibility-checklist.md) for the read-only inspection and deployment sequence. Database initialization remains separate.
 
-`npm test` runs the offline Node.js test suite for migration ordering, checksums, statement splitting and schema invariants. It does not connect to MariaDB. `npm run db:migrate` is an operator-only schema command and is intentionally excluded from routine validation and app startup.
+`npm test` runs offline tests for migration ordering/checksums, Auth.js environment and claim validation, local identity/role resolution, requester scope and ticket operations through fake MariaDB connections. It does not connect to MariaDB or a real Entra tenant. `npm run db:migrate` is an operator-only schema command and is intentionally excluded from routine validation and app startup.
 
 `npm run db:diagnose` performs a read-only identity query against the fixed database target to verify `DATABASE()`, `@@hostname`, `@@port`, and MariaDB version. It never runs migrations or writes data. Set `MIGRATOR_DATABASE_URL` and an explicit, confirmed `MARIADB_TLS` value in the process environment first; see [docs/database-migrations.md](docs/database-migrations.md).
 
 `npm run db:reset` is a separate destructive, fixed-target procedure for the existing `ucegcom_helpdesk` database. It requires exact database/host/port identity, an explicit TLS choice (and `--approve-no-tls` for confirmed plaintext), an explicit choice between signed backup evidence and `--data-disposable`, and an interactive typed confirmation. It is not part of routine validation; see [docs/database-migrations.md](docs/database-migrations.md). Do not run it without separate approval.
 
-`npm run build` uses Next.js's Webpack bundler. The default Turbopack build previously exited with a child-process panic while processing `src/app/globals.css` in Windows. Current Windows builds can also fail with `EPERM` while creating a nested `.next` route/type directory; this remains under investigation and is not evidence of a cPanel/Linux permissions problem. `npm test` covers offline schema and migration safety checks; it does not require MariaDB.
+`npm run build` uses Next.js's Webpack bundler. Builds have been intermittent on Windows: the latest attempt compiled and passed build-time TypeScript, then failed prerendering `/_not-found` with `EPERM` creating `.next/server/app/_not-found.segments/_not-found`. The previous attempt failed creating `.next/server/app/api/tickets/[ticketNumber]`; earlier failures occurred at other route paths. Read-only checks found inherited Modify ACL entries and no remaining Node process. Defender and open-handle diagnostics were unavailable, so the cause remains unknown. This does not establish a cPanel/Linux permissions problem. Verify a clean Linux build on the separate cPanel clone; do not infer host compatibility from Windows. `npm test` uses offline/fake database connections only and does not require or contact MariaDB.
 
 Stage 1 was validated locally with Node.js `v24.21.0` and npm `11.19.0`: clean `npm ci`, typecheck, lint, a Webpack production build, and production HTTP checks passed. `/helpdesk` and the tickets, assets, reports and settings pages returned 200; the health endpoint returned `{"status":"ok","stage":1}` at `/helpdesk/api/health`; eight generated CSS/JS assets returned 200; and `/api/health` returned 404 as expected. `npm audit` reported zero vulnerabilities for the generated lockfile on 2026-10-26.
 
 ESLint `9.39.5` is retained because Next.js's bundled ESLint plugins declare peer compatibility through ESLint 9; npm marks the ESLint 9 release line as no longer supported. The next compatible Next.js lint-plugin release should be reviewed before moving ESLint to 10. The cPanel Node runtime, Passenger startup method, and production host configuration remain unverified.
 
-The application is configured for the `/helpdesk` base path. Stage 1 includes only the shell, route placeholders and health endpoint; it has no authentication, database, real ticket data, or production workflows.
+The application is configured for `/helpdesk`. Auth.js uses the Entra tenant and immutable object ID only to resolve existing active local users; database role assignments are reloaded on every protected request, and `session_version` revokes old sessions. The ticket UI supports protected listing/search/status filtering, creation, detail/conversation, status transitions, assignment, public replies, and internal notes. Asset service operations include permission-checked inventory, creation, assignment, and retirement; narrow report, recipient-scoped notification, and admin-reference services are also present. Attachments, SLA calculations, notification generation/delivery, report filters/exports, and administrative changes remain incomplete. Exact verification from this turn is recorded in the final implementation report and [implementation status](docs/implementation-status.md); production readiness is not claimed.
 
 See [docs/architecture.md](docs/architecture.md) for schema decisions and boundaries, [docs/database-migrations.md](docs/database-migrations.md) for the guarded migration procedure, and [docs/cpanel-compatibility-checklist.md](docs/cpanel-compatibility-checklist.md) for unresolved hosting checks.

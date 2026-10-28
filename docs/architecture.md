@@ -1,6 +1,12 @@
 # Architecture and compatibility decisions
 
-Reviewed 2026-10-26. This document records the current scaffold, official compatibility evidence, proposed design, and unresolved host-dependent choices. A MariaDB connector, minimal server-side connection/transaction helpers, and a fresh-schema migration set are now present; no live database was accessed and no authentication or business workflow has been implemented.
+## Current implementation update (2026-10-26)
+
+The ticket domain has bounded validation and the status transitions defined by migration `0001`. Its repository loads active permissions from MariaDB, uses parameterized operations and row locks, scopes requester reads, filters internal notes/activity, and writes history/audit rows transactionally. Asset services add permission-checked inventory, creation, assignment and retirement with lifecycle validation, history, and audit. The report service returns aggregate ticket status counts only; notification operations are scoped to the recipient; the admin service currently reads reference data only. Fake-connection tests cover the authorization boundary. Route Handler shells for these features return `503 authentication_unavailable` before calling services until trusted Entra sessions and database-backed identity resolution are connected. The pages show unavailable states and do not fetch records.
+
+Auth.js remains the candidate because official `next-auth@5.0.0-beta.32` package metadata lists peer ranges including Next 16 and React 19, and the package documents a Microsoft Entra ID provider. The npm `beta` tag resolves to that version, while stable `latest` is v4. The v5 package is still beta. GitHub advisories published 2026-07-20 list beta.32 as patched for cited issues affecting beta.31 and earlier. It was not installed because `npm ping`, metadata, and audit requests failed with `ENOTFOUND registry.npmjs.org`; its tarball, full dependency tree, and project audit remain unverified. Do not hand-edit the lockfile or implement a custom OAuth/OIDC protocol as a substitute.
+
+Reviewed 2026-10-26. This document records the current implementation, official compatibility evidence, proposed design, and unresolved host-dependent choices. The initial schema, migration tooling, and ticket service layer are present; no live database was accessed and authentication remains unimplemented.
 
 ## Verified project state
 
@@ -10,7 +16,7 @@ Reviewed 2026-10-26. This document records the current scaffold, official compat
 - `next.config.ts` sets `basePath: "/helpdesk"`. Next applies this at build time. The production build script uses `next build --webpack`; Webpack build and local production routes/assets passed Stage 1 checks. This is local evidence only.
 - `mariadb@3.5.4` is an exact runtime dependency. Its official package metadata requires Node `>=20.0.0`; the project engine range (`>=20.9.0 <25`) and local Node `24.21.0` satisfy that requirement. No ORM or authentication package is installed.
 - `src/server/db/pool.ts` defines a lazy bounded MariaDB pool; `src/server/db/transaction.ts` provides a transaction wrapper. They are infrastructure only and are not imported by pages/routes. No DB credentials were added.
-- `migrations/0001_*` through `0003_*` define a fresh schema and static role/permission/status/priority reference values. `scripts/migrate.mjs` and `scripts/migration-utils.mjs` provide explicit, ordered/checksummed migration application. The runner was not invoked; no database was contacted.
+- `migrations/0001_*` through `0004_*` define a fresh schema and static role/permission/status/priority reference values, including a forward grant for technician internal notes. `scripts/migrate.mjs` and `scripts/migration-utils.mjs` provide explicit, ordered/checksummed migration application. The runner was not invoked; no database was contacted.
 - `.env.example` contains placeholders only. Runtime credentials must remain server-only and out of client bundles, source control, and logs.
 
 ## Node.js recommendation
